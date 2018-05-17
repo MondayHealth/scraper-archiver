@@ -4,13 +4,14 @@ import os
 import sqlite3
 from sqlite3 import Cursor, Connection
 
+# noinspection PyPackageRequirements
 import progressbar
 import redis
 
 from data import PROVIDERS, DIRECTORIES
 
 
-def mkdir(path: str) -> None:
+def make_dir(path: str) -> None:
     try:
         os.mkdir(path)
     except OSError as exc:
@@ -103,7 +104,7 @@ class Archive:
 
     def _process_provider(self, pid: str, name: str) -> None:
         print("Processing provider " + name)
-        mkdir("./archive/" + pid)
+        make_dir("./archive/" + pid)
         self._store_hash(listing_key_for_name(pid), pid, "listing")
         self._store_hash(detail_key_for_name(pid), pid, "detail")
         self._store_hash(ambiguous_key_for_name(pid), pid, "ambiguous")
@@ -111,13 +112,13 @@ class Archive:
 
     def _process_directory(self, did: str, name: str) -> None:
         print("Processing directory " + name)
-        mkdir("./archive/" + did)
+        make_dir("./archive/" + did)
         self._store_hash(listing_key_for_name(did), did, "listing")
         self._store_hash(detail_key_for_name(did), did, "detail")
         self._store_hash(ambiguous_key_for_name(did), did, "ambiguous")
 
     def archive(self) -> None:
-        mkdir("./archive")
+        make_dir("./archive")
         for key, value in PROVIDERS.items():
             pid = value['id']
             name = value['name']
