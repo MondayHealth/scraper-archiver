@@ -4,6 +4,7 @@ import os
 import sqlite3
 from sqlite3 import Cursor, Connection
 
+import progressbar
 import redis
 
 from data import PROVIDERS, DIRECTORIES
@@ -59,11 +60,12 @@ class Archive:
     @staticmethod
     def _create_db(file_name: str) -> Connection:
         full_name = file_name + ".db"
-        already_exists = os.path.exists(full_name)
-        conn: Connection = sqlite3.connect(full_name)
 
-        if already_exists:
-            return conn
+        if os.path.exists(full_name):
+            print("!! Deleting existing DB: " + full_name)
+            os.unlink(full_name)
+
+        conn: Connection = sqlite3.connect(full_name)
 
         c: Cursor = conn.cursor()
         c.execute(
@@ -72,14 +74,32 @@ class Archive:
         conn.commit()
         return conn
 
-    def _store_hash(self, key: str, pid: str, desc: str):
-        if not self._r.exists(key):
-            print("Skipping " + key)
+    def _store_hash(self, top_key: str, pid: str, desc: str):
+        if not self._r.exists(top_key):
+            print("Skipping " + top_key)
             return
+
+        bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
+        keys: list = self._r.hkeys(top_key)
+        count: int = len(keys)
+        bar.max_value = count
+        processed: int = 0
 
         file_name = "./archive/{}/{}".format(pid, self.archive_name(pid, desc))
         with Archive._create_db(file_name) as conn:
-            print("Would store hash " + key)
+            c: Cursor = conn.cursor()
+            for key in keys:
+                value = self._r.hget(top_key, key)
+                c.execute('''INSERT INTO data VALUES (?, ?)''', (key, value))
+                processed += 1
+
+                if processed % 100 == 0:
+                    conn.commit()
+
+                bar.update(processed)
+
+            conn.commit()
+        print()
 
     def _process_provider(self, pid: str, name: str) -> None:
         print("Processing provider " + name)
